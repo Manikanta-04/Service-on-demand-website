@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuthStore } from '../store/useAuthStore';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
@@ -17,8 +16,6 @@ export const BookingFlow = () => {
     serviceId: 'mock-service-123',
     amount: 500,
   });
-
-  const { user } = useAuthStore();
 
   const navigate = useNavigate();
 
@@ -93,10 +90,6 @@ export const BookingFlow = () => {
   // 1 for forward, -1 for backward
   const [direction, setDirection] = useState(1);
 
-  const changeStep = (newStep: number) => {
-    setDirection(newStep > currentStep ? 1 : -1);
-    setCurrentStep(newStep);
-  };
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-surface border border-border rounded-2xl shadow-xl">
