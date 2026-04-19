@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 
 const services = [
-  { id: 1, name: 'Salon for Women', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=600&q=80', desc: 'Expert beauty & grooming' },
-  { id: 2, name: 'Deep Cleaning', img: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80', desc: 'Complete home sanitization' },
-  { id: 3, name: 'Appliance Repair', img: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80', desc: 'AC, Fridge & Washing Machine' },
-  { id: 4, name: 'Plumbing & Pipes', img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80', desc: 'Quick leak & block fixes' },
-  { id: 5, name: 'Professional Painting', img: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80', desc: 'Interior & exterior walls' },
-  { id: 6, name: 'Packers & Movers', img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80', desc: 'Safe & secure shifting' },
-  { id: 7, name: 'Electrician', img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80', desc: 'Wiring & installations' },
-  { id: 8, name: 'Pest Control', img: 'https://images.unsplash.com/photo-1623696500366-22a36b32230d?auto=format&fit=crop&w=600&q=80', desc: 'Eradicate bugs & termites' }
+  { id: 1, name: 'Salon for Women', key: 'salon', img: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=600&q=80', desc: 'Expert beauty & grooming' },
+  { id: 2, name: 'Deep Cleaning', key: 'cleaning', img: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80', desc: 'Complete home sanitization' },
+  { id: 3, name: 'Appliance Repair', key: 'repair', img: 'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80', desc: 'AC, Fridge & Washing Machine' },
+  { id: 4, name: 'Plumbing & Pipes', key: 'plumbing', img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80', desc: 'Quick leak & block fixes' },
+  { id: 5, name: 'Professional Painting', key: 'painting', img: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80', desc: 'Interior & exterior walls' },
+  { id: 6, name: 'Packers & Movers', key: 'movers', img: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80', desc: 'Safe & secure shifting' },
+  { id: 7, name: 'Electrician', key: 'electrician', img: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80', desc: 'Wiring & installations' },
+  { id: 8, name: 'Pest Control', key: 'pest-control', img: 'https://images.unsplash.com/photo-1623696500366-22a36b32230d?auto=format&fit=crop&w=600&q=80', desc: 'Eradicate bugs & termites' }
 ];
 
 const stats = [
@@ -97,7 +97,7 @@ export const LandingPage = () => {
             className="flex-1 bg-transparent border-none outline-none px-6 text-text font-body placeholder:text-faint"
           />
           <button 
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/services')}
             className="bg-accent text-white px-8 py-3 rounded-full font-display font-semibold hover:bg-accent/90 transition-colors"
           >
             Find Service
@@ -137,7 +137,7 @@ export const LandingPage = () => {
               }}
               whileHover={{ y: -6 }}
               className="bg-surface border border-border rounded-2xl cursor-pointer group shadow-md hover:shadow-xl hover:border-accent/50 transition-all duration-300 relative flex flex-col h-[340px]"
-              onClick={() => navigate(`/services/${s.name.toLowerCase().replace(' ', '-')}`)}
+              onClick={() => navigate(`/services/${s.key}`)}
             >
               <div className="h-48 w-full overflow-hidden rounded-t-2xl">
                 <img src={s.img} alt={s.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />

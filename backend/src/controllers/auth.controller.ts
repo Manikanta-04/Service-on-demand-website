@@ -25,7 +25,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     });
 
     const token = jwt.sign({ id: user._id, role: 'user' }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production', sameSite: 'none' });
     
     res.status(201).json({ user: { id: user._id, name, email, role: 'user', isFirstTime: true } });
   } catch (error) {
@@ -40,7 +40,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // Hardcoded admin
     if (email === 'admin@gmail.com' && password === 'admin123') {
       const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET || 'secret', { expiresIn: '24h' });
-      res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+      res.cookie('token', token, { httpOnly: true, maxAge: 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production', sameSite: 'none' });
       res.json({ user: { name: 'Admin', role: 'admin' } });
       return;
     }
@@ -58,7 +58,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production' });
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000, secure: process.env.NODE_ENV === 'production', sameSite: 'none' });
 
     res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role, isFirstTime: user.isFirstTime } });
   } catch (error) {
@@ -67,7 +67,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = (req: Request, res: Response): void => {
-  res.clearCookie('token');
+  res.clearCookie('token', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'none' });
   res.json({ message: 'Logged out successfully' });
 };
 

@@ -26,6 +26,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/services/:category" element={<ServicesPage />} />
+        <Route path="/services" element={<LandingPage />} />
         <Route path="/categories" element={<LandingPage />} />
         
         {/* Protected Routes */}
