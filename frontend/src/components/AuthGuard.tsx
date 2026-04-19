@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 // Assuming backend runs on 5000 and we want to use the explicit URL,
 // or use relative path if there's a Vite proxy. For safety we use full URL:
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const AuthGuard = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
   const { user, isAuthenticated, setUser } = useAuthStore();

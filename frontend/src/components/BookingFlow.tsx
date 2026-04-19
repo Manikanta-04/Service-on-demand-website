@@ -46,7 +46,8 @@ export const BookingFlow = () => {
 
   const submitBooking = async () => {
     try {
-      const createRes = await axios.post('http://localhost:5000/api/bookings/create-order', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const createRes = await axios.post(`${API_URL}/bookings/create-order`, {
         serviceId: '65a12b3c4d5e6f7a8b9c0d1e', // Valid ObjectId
         date: formData.date,
         time: formData.time,
@@ -56,7 +57,7 @@ export const BookingFlow = () => {
       const { orderId, bookingId } = createRes.data;
 
       // Mock webhook verification to confirm booking
-      await axios.post('http://localhost:5000/api/bookings/webhook', {
+      await axios.post(`${API_URL}/bookings/webhook`, {
         orderId,
         paymentId: 'pay_mock123',
         signature: 'valid',
