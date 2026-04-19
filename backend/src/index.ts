@@ -61,7 +61,11 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-// Basic Route
+// Basic Routes
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Service API is running' });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
