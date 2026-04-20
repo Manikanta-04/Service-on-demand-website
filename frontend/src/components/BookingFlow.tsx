@@ -4,453 +4,241 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const STEPS = ['Location', 'Schedule', 'Time Slot', 'Offers', 'Summary'] as const;
-type Step = 0 | 1 | 2 | 3 | 4;
+const card: React.CSSProperties = {
+  background: '#17171f', border: '1px solid rgba(255,255,255,0.06)',
+  borderRadius: 10, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.03)',
+};
 
-const TIME_SLOTS = [
-  { time: '09:00', label: '9:00 AM', available: true },
-  { time: '11:00', label: '11:00 AM', available: true },
-  { time: '13:00', label: '1:00 PM', available: false },
-  { time: '15:00', label: '3:00 PM', available: true },
-  { time: '17:00', label: '5:00 PM', available: true },
-  { time: '19:00', label: '7:00 PM', available: false },
+const STEPS = ['Location', 'Date', 'Time', 'Offers', 'Summary'] as const;
+
+const SLOTS = [
+  { t: '09:00', l: '9:00 AM',  ok: true  },
+  { t: '11:00', l: '11:00 AM', ok: true  },
+  { t: '13:00', l: '1:00 PM',  ok: false },
+  { t: '15:00', l: '3:00 PM',  ok: true  },
+  { t: '17:00', l: '5:00 PM',  ok: true  },
+  { t: '19:00', l: '7:00 PM',  ok: false },
 ];
 
-interface FormData {
-  address: string;
-  date: string;
-  time: string;
-  serviceId: string;
-  baseAmount: number;
-  discount: number;
-}
+const nextDays = (n: number) => Array.from({ length: n }, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() + i + 1);
+  return { iso: d.toISOString().split('T')[0], day: d.toLocaleDateString('en-IN', { weekday: 'short' }), date: d.getDate(), mon: d.toLocaleDateString('en-IN', { month: 'short' }) };
+});
 
-const slideVariants = {
-  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
-  center: { x: 0, opacity: 1 },
-  exit:  (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
-};
-
-/* ── Step Indicator ── */
-const StepIndicator = ({ current }: { current: number }) => (
-  <div className="flex items-center justify-between mb-8">
-    {STEPS.map((label, i) => {
-      const done   = i < current;
-      const active = i === current;
-      return (
-        <div key={i} className="flex items-center">
-          {/* circle */}
-          <div className="flex flex-col items-center gap-1.5">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-semibold border-2 transition-all duration-300 ${
-              done   ? 'bg-teal border-teal text-bg' :
-              active ? 'bg-accent border-accent text-white' :
-                       'bg-surface2 border-border text-faint'
-            }`}>
-              {done ? (
-                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8l4 4 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ) : i + 1}
-            </div>
-            <span className={`text-[10px] hidden md:block tracking-wide uppercase font-medium transition-colors ${
-              active ? 'text-text' : done ? 'text-teal' : 'text-faint'
-            }`}>
-              {label}
-            </span>
-          </div>
-          {/* connector */}
-          {i < STEPS.length - 1 && (
-            <div className="w-full h-px mx-2 transition-colors duration-500" style={{
-              background: i < current ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.06)',
-              minWidth: '20px', flex: 1,
-            }} />
-          )}
-        </div>
-      );
-    })}
-  </div>
-);
-
-/* ── Individual Steps ── */
-const LocationStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <div className="space-y-5">
-    <div>
-      <h3 className="font-semibold text-[18px] text-text mb-1">Where do you need the service?</h3>
-      <p className="text-muted text-[13px]">We'll assign the nearest available professional.</p>
-    </div>
-    <div>
-      <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Full Address</label>
-      <textarea
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="input resize-none h-28"
-        placeholder="House no., Street, Area, City, Pincode"
-      />
-    </div>
-    {/* quick location picks */}
-    <div>
-      <div className="text-[11px] text-faint uppercase tracking-widest mb-2">Quick picks</div>
-      <div className="flex flex-wrap gap-2">
-        {['Banjara Hills, Hyderabad', 'Koramangala, Bangalore', 'Andheri, Mumbai'].map(loc => (
-          <button
-            key={loc}
-            onClick={() => onChange(loc)}
-            className={`text-[12px] border rounded-lg px-3 py-1.5 transition-all ${
-              value === loc ? 'border-accent text-accent-light bg-accent-dim' : 'border-border text-muted hover:border-border-hover hover:text-text'
-            }`}
-          >
-            {loc}
-          </button>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const ScheduleStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
-  // Generate next 7 days
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i + 1);
-    return {
-      isoDate: d.toISOString().split('T')[0],
-      day:  d.toLocaleDateString('en-IN', { weekday: 'short' }),
-      date: d.getDate(),
-      month: d.toLocaleDateString('en-IN', { month: 'short' }),
-    };
-  });
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="font-semibold text-[18px] text-text mb-1">Pick a date</h3>
-        <p className="text-muted text-[13px]">Choose a convenient date for your appointment.</p>
-      </div>
-      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
-        {days.map(d => (
-          <button
-            key={d.isoDate}
-            onClick={() => onChange(d.isoDate)}
-            className={`flex flex-col items-center py-3 px-1 rounded-xl border text-center transition-all duration-150 ${
-              value === d.isoDate
-                ? 'border-accent bg-accent-dim text-accent-light'
-                : 'border-border bg-surface2 text-muted hover:border-border-hover hover:text-text'
-            }`}
-          >
-            <span className="text-[10px] uppercase tracking-wider">{d.day}</span>
-            <span className="text-[18px] font-semibold mt-1">{d.date}</span>
-            <span className="text-[10px]">{d.month}</span>
-          </button>
-        ))}
-      </div>
-      {/* Fallback date input */}
-      <div>
-        <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Or enter a specific date</label>
-        <input
-          type="date"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-          className="input"
-          style={{ colorScheme: 'dark' }}
-        />
-      </div>
-    </div>
-  );
-};
-
-const TimeSlotStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <div className="space-y-5">
-    <div>
-      <h3 className="font-semibold text-[18px] text-text mb-1">Select a time slot</h3>
-      <p className="text-muted text-[13px]">Greyed out slots are already booked.</p>
-    </div>
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {TIME_SLOTS.map(slot => (
-        <button
-          key={slot.time}
-          disabled={!slot.available}
-          onClick={() => slot.available && onChange(slot.time)}
-          className={`py-3.5 px-4 rounded-xl border text-[14px] font-medium transition-all duration-150 ${
-            !slot.available
-              ? 'border-border/40 text-faint cursor-not-allowed opacity-50 line-through'
-              : value === slot.time
-              ? 'border-accent bg-accent-dim text-accent-light ring-1 ring-accent/40'
-              : 'border-border bg-surface2 text-text hover:border-border-hover hover:bg-surface3'
-          }`}
-        >
-          {slot.label}
-          {!slot.available && <div className="text-[10px] mt-0.5 not-italic font-normal">Booked</div>}
-        </button>
-      ))}
-    </div>
-  </div>
-);
-
-const OffersStep = () => (
-  <div className="space-y-5">
-    <div>
-      <h3 className="font-semibold text-[18px] text-text mb-1">Offers & Discounts</h3>
-      <p className="text-muted text-[13px]">Apply a coupon or avail available offers.</p>
-    </div>
-
-    {/* Active offer */}
-    <div className="card p-4 flex items-center justify-between border-teal/30 bg-teal/5">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-teal-dim border border-teal/20 flex items-center justify-center text-teal text-[16px]">🏷</div>
-        <div>
-          <div className="font-semibold text-[14px] text-text">Festival Discount Applied</div>
-          <div className="text-[12px] text-muted">30% OFF on all services today</div>
-        </div>
-      </div>
-      <span className="font-semibold text-teal text-[15px]">–₹150</span>
-    </div>
-
-    {/* Coupon input */}
-    <div>
-      <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Have a coupon?</label>
-      <div className="flex gap-2">
-        <input className="input flex-1" placeholder="Enter coupon code" />
-        <button className="btn-secondary text-[13px] px-5 shrink-0">Apply</button>
-      </div>
-    </div>
-
-    <div className="card p-4 flex items-center gap-3 border-amber/20 bg-amber-dim/50">
-      <span className="text-amber text-[18px]">💳</span>
-      <div className="text-[13px] text-muted">Pay online & get an extra <span className="font-medium text-text">₹50 cashback</span> on your first booking.</div>
-    </div>
-  </div>
-);
-
-const SummaryStep = ({ data }: { data: FormData }) => {
-  const finalAmount = data.baseAmount - data.discount + 50; // taxes
-  return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="font-semibold text-[18px] text-text mb-1">Review your booking</h3>
-        <p className="text-muted text-[13px]">Confirm all details before payment.</p>
-      </div>
-
-      {/* Booking details */}
-      <div className="card p-5 space-y-3 text-[14px]">
-        {[
-          { label: 'Date',     value: data.date    || '—' },
-          { label: 'Time',     value: data.time ? (TIME_SLOTS.find(s => s.time === data.time)?.label || data.time) : '—' },
-          { label: 'Location', value: data.address || '—' },
-        ].map(row => (
-          <div key={row.label} className="flex items-start justify-between gap-4">
-            <span className="text-muted shrink-0 w-20">{row.label}</span>
-            <span className="text-text text-right">{row.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Price breakdown */}
-      <div className="card p-5 space-y-2.5 text-[14px]">
-        <div className="flex justify-between text-muted">
-          <span>Base price</span><span className="text-text">₹{data.baseAmount}</span>
-        </div>
-        <div className="flex justify-between text-muted">
-          <span>Taxes & fees</span><span className="text-text">₹50</span>
-        </div>
-        <div className="flex justify-between text-teal font-medium">
-          <span>Discount</span><span>–₹{data.discount}</span>
-        </div>
-        <div className="h-px bg-border my-1" />
-        <div className="flex justify-between font-semibold text-[17px]">
-          <span className="text-text">Total</span>
-          <span className="text-text">₹{finalAmount}</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ── Main BookingFlow ── */
 export const BookingFlow = ({ serviceId, serviceName, basePrice }: {
-  serviceId?: string;
-  serviceName?: string;
-  basePrice?: number;
+  serviceId?: string; serviceName?: string; basePrice?: number;
 }) => {
-  const [step,      setStep]      = useState<Step>(0);
-  const [dir,       setDir]       = useState(1);
-  const [complete,  setComplete]  = useState(false);
-  const [loading,   setLoading]   = useState(false);
-  const [formData,  setFormData]  = useState<FormData>({
-    address:    '',
-    date:       '',
-    time:       '',
-    serviceId:  serviceId || 'mock-service-123',
-    baseAmount: basePrice || 500,
-    discount:   150,
-  });
-
   const navigate = useNavigate();
+  const [step, setStep]         = useState(0);
+  const [dir, setDir]           = useState(1);
+  const [done, setDone]         = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [addr, setAddr]         = useState('');
+  const [date, setDate]         = useState('');
+  const [time, setTime]         = useState('');
+  const base    = basePrice || 500;
+  const discount = 150;
+  const total   = base + 50 - discount;
 
-  const update = (key: keyof FormData) => (val: string | number) =>
-    setFormData(prev => ({ ...prev, [key]: val }));
-
-  const validateStep = (): boolean => {
-    if (step === 0 && !formData.address.trim()) { toast.error('Please enter your address'); return false; }
-    if (step === 1 && !formData.date)            { toast.error('Please select a date');     return false; }
-    if (step === 2 && !formData.time)            { toast.error('Please select a time slot'); return false; }
+  const validate = () => {
+    if (step === 0 && !addr.trim()) { toast.error('Enter your address'); return false; }
+    if (step === 1 && !date)        { toast.error('Pick a date');         return false; }
+    if (step === 2 && !time)        { toast.error('Choose a time slot');  return false; }
     return true;
   };
 
-  const handleNext = () => {
-    if (!validateStep()) return;
-    if (step < STEPS.length - 1) {
-      setDir(1);
-      setStep(s => (s + 1) as Step);
-    } else {
-      submitBooking();
-    }
+  const next = () => {
+    if (!validate()) return;
+    if (step < STEPS.length - 1) { setDir(1); setStep(s => s + 1); }
+    else submit();
   };
+  const back = () => { if (step > 0) { setDir(-1); setStep(s => s - 1); } };
 
-  const handleBack = () => {
-    if (step > 0) { setDir(-1); setStep(s => (s - 1) as Step); }
-  };
-
-  const submitBooking = async () => {
-    setLoading(true);
+  const submit = async () => {
+    setBusy(true);
     try {
-      const createRes = await axios.post(`${API_URL}/bookings/create-order`, {
-        serviceId: '65a12b3c4d5e6f7a8b9c0d1e',
-        date:      formData.date,
-        time:      formData.time,
-        finalAmount: formData.baseAmount - formData.discount + 50,
-      }, { withCredentials: true });
-
-      const { orderId, bookingId } = createRes.data;
-
-      await axios.post(`${API_URL}/bookings/webhook`, {
-        orderId, paymentId: 'pay_mock123', signature: 'valid', bookingId,
-      });
-
+      const { data } = await axios.post(`${API}/bookings/create-order`, { serviceId: '65a12b3c4d5e6f7a8b9c0d1e', date, time, finalAmount: total }, { withCredentials: true });
+      await axios.post(`${API}/bookings/webhook`, { orderId: data.orderId, paymentId: 'pay_mock', signature: 'valid', bookingId: data.bookingId });
       toast.success('Booking confirmed!');
-      setComplete(true);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Booking failed. Try again.');
-    } finally {
-      setLoading(false);
-    }
+      setDone(true);
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Booking failed'); }
+    finally { setBusy(false); }
   };
 
-  /* ── Success screen ── */
-  if (complete) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center py-14"
-      >
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }}
-          className="w-20 h-20 rounded-full bg-teal/10 border border-teal/30 flex items-center justify-center mx-auto mb-6"
-        >
-          <svg className="w-9 h-9 text-teal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </motion.div>
-
-        <h2 className="font-semibold text-2xl text-text mb-2">Booking Confirmed!</h2>
-        <p className="text-muted text-[14px] max-w-sm mx-auto mb-2">
-          Your booking for <span className="text-text font-medium">{serviceName || 'the service'}</span> is confirmed.
-        </p>
-        <p className="text-muted text-[14px] mb-8">
-          {formData.date && `${formData.date} · `}
-          {formData.time && (TIME_SLOTS.find(s => s.time === formData.time)?.label || formData.time)}
-        </p>
-
-        <div className="card p-5 max-w-xs mx-auto text-left mb-8 text-[13px]">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />
-            <span className="text-muted">Professional will be assigned within 30 min</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent" />
-            <span className="text-muted">You'll receive a confirmation SMS & email</span>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button onClick={() => navigate('/dashboard')} className="btn-primary px-8 py-3">
-            View My Bookings
-          </button>
-          <button onClick={() => navigate('/')} className="btn-secondary px-8 py-3">
-            Back to Home
-          </button>
-        </div>
+  /* Success */
+  if (done) return (
+    <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: 'center', padding: '40px 0' }}>
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }}
+        style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(11,145,103,0.12)', border: '1px solid rgba(11,145,103,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0b9167" strokeWidth="2"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </motion.div>
-    );
-  }
+      <div style={{ fontWeight: 600, fontSize: 20, color: '#e4e4e8', marginBottom: 8 }}>Booking Confirmed!</div>
+      <div style={{ fontSize: 13, color: '#62627a', marginBottom: 6 }}>
+        {serviceName} · {date} {SLOTS.find(s => s.t === time)?.l || time}
+      </div>
+      <div style={{ fontSize: 13, color: '#62627a', marginBottom: 28 }}>A professional will be assigned within 30 minutes.</div>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+        <button className="btn-primary" style={{ padding: '9px 22px' }} onClick={() => navigate('/dashboard')}>View Bookings</button>
+        <button className="btn-secondary" style={{ padding: '9px 22px' }} onClick={() => navigate('/')}>Back to Home</button>
+      </div>
+    </motion.div>
+  );
 
-  /* ── Form ── */
+  const variants = {
+    enter: (d: number) => ({ x: d > 0 ? 50 : -50, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit:  (d: number) => ({ x: d > 0 ? -50 : 50, opacity: 0 }),
+  };
+
   return (
     <div>
-      <StepIndicator current={step} />
+      {/* Step indicators */}
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
+        {STEPS.map((label, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 600, transition: 'all 200ms',
+                background: i < step ? '#0b9167' : i === step ? '#4e51ae' : '#17171f',
+                border: i < step ? '1px solid rgba(11,145,103,0.4)' : i === step ? '1px solid rgba(78,81,174,0.4)' : '1px solid rgba(255,255,255,0.06)',
+                color: i <= step ? 'white' : '#62627a',
+              }}>
+                {i < step ? <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> : i + 1}
+              </div>
+              <span style={{ fontSize: 10, color: i === step ? '#e4e4e8' : i < step ? '#0b9167' : '#2a2a35', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'none' }} className="md:block">{label}</span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div style={{ flex: 1, height: 1, margin: '0 4px', marginBottom: 14, background: i < step ? 'rgba(11,145,103,0.4)' : 'rgba(255,255,255,0.06)', transition: 'background 300ms' }} />
+            )}
+          </div>
+        ))}
+      </div>
 
       {/* Step content */}
-      <div className="relative min-h-[320px] overflow-hidden bg-surface2/40 border border-border rounded-xl p-6 mb-6">
+      <div style={{ ...card, padding: '24px', minHeight: 280, marginBottom: 20, overflow: 'hidden', position: 'relative' }}>
         <AnimatePresence custom={dir} mode="wait">
-          <motion.div
-            key={step}
-            custom={dir}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-          >
-            {step === 0 && <LocationStep  value={formData.address} onChange={update('address')} />}
-            {step === 1 && <ScheduleStep  value={formData.date}    onChange={update('date')} />}
-            {step === 2 && <TimeSlotStep  value={formData.time}    onChange={update('time')} />}
-            {step === 3 && <OffersStep />}
-            {step === 4 && <SummaryStep   data={formData} />}
+          <motion.div key={step} custom={dir} variants={variants} initial="enter" animate="center" exit="exit"
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}>
+
+            {step === 0 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 4 }}>Where do you need this?</div>
+                <div style={{ fontSize: 13, color: '#62627a', marginBottom: 16 }}>We'll assign the nearest verified professional.</div>
+                <textarea value={addr} onChange={e => setAddr(e.target.value)} rows={3}
+                  placeholder="House no., Street, Area, City, Pincode"
+                  style={{ width: '100%', background: '#1e1e28', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', color: '#e4e4e8', fontSize: 14, outline: 'none', resize: 'none', lineHeight: 1.6, fontFamily: 'inherit' }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(78,81,174,0.5)'}
+                  onBlur={e  => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                />
+                <div style={{ fontSize: 11, color: '#2a2a35', marginTop: 10 }}>Quick picks:</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {['Banjara Hills, Hyderabad', 'Koramangala, Bangalore', 'Andheri, Mumbai'].map(l => (
+                    <button key={l} onClick={() => setAddr(l)} style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, cursor: 'pointer', transition: 'all 120ms', background: addr === l ? 'rgba(78,81,174,0.12)' : 'transparent', border: addr === l ? '1px solid rgba(78,81,174,0.3)' : '1px solid rgba(255,255,255,0.07)', color: addr === l ? '#9496cc' : '#62627a' }}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {step === 1 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 4 }}>Pick a date</div>
+                <div style={{ fontSize: 13, color: '#62627a', marginBottom: 16 }}>Same-day slots available in select cities.</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {nextDays(7).map(d => (
+                    <button key={d.iso} onClick={() => setDate(d.iso)} style={{ padding: '10px 6px', borderRadius: 8, cursor: 'pointer', textAlign: 'center', transition: 'all 120ms', background: date === d.iso ? 'rgba(78,81,174,0.12)' : '#1e1e28', border: date === d.iso ? '1px solid rgba(78,81,174,0.35)' : '1px solid rgba(255,255,255,0.06)', color: date === d.iso ? '#9496cc' : '#e4e4e8' }}>
+                      <div style={{ fontSize: 10, color: date === d.iso ? '#9496cc' : '#62627a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{d.day}</div>
+                      <div style={{ fontSize: 18, fontWeight: 600, margin: '2px 0' }}>{d.date}</div>
+                      <div style={{ fontSize: 10, color: date === d.iso ? '#9496cc' : '#62627a' }}>{d.mon}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 4 }}>Choose a time slot</div>
+                <div style={{ fontSize: 13, color: '#62627a', marginBottom: 16 }}>Unavailable slots are already booked.</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+                  {SLOTS.map(s => (
+                    <button key={s.t} disabled={!s.ok} onClick={() => setTime(s.t)}
+                      style={{ padding: '12px 8px', borderRadius: 8, fontSize: 13, fontWeight: 500, textAlign: 'center', cursor: s.ok ? 'pointer' : 'not-allowed', transition: 'all 120ms', opacity: !s.ok ? 0.4 : 1, textDecoration: !s.ok ? 'line-through' : 'none',
+                        background: time === s.t ? 'rgba(78,81,174,0.12)' : '#1e1e28',
+                        border: time === s.t ? '1px solid rgba(78,81,174,0.35)' : '1px solid rgba(255,255,255,0.06)',
+                        color: time === s.t ? '#9496cc' : '#e4e4e8' }}>
+                      {s.l}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 4 }}>Offers & Discounts</div>
+                <div style={{ fontSize: 13, color: '#62627a', marginBottom: 16 }}>Savings automatically applied at checkout.</div>
+                <div style={{ background: 'rgba(11,145,103,0.07)', border: '1px solid rgba(11,145,103,0.18)', borderRadius: 10, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: 14, color: '#e4e4e8' }}>Festival Discount</div>
+                    <div style={{ fontSize: 12, color: '#62627a', marginTop: 2 }}>30% off applied automatically</div>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 15, color: '#0b9167' }}>–₹{discount}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input placeholder="Coupon code" style={{ flex: 1, background: '#1e1e28', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '8px 14px', color: '#e4e4e8', fontSize: 13, outline: 'none', fontFamily: 'inherit' }} />
+                  <button className="btn-secondary" style={{ padding: '8px 16px', fontSize: 13 }}>Apply</button>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 16 }}>Order Summary</div>
+                <div style={{ ...card, padding: '16px 18px', marginBottom: 12 }}>
+                  {[
+                    { l: 'Service',  v: serviceName || 'Home Service' },
+                    { l: 'Date',     v: date || '—' },
+                    { l: 'Time',     v: SLOTS.find(s => s.t === time)?.l || '—' },
+                    { l: 'Address', v: addr || '—' },
+                  ].map(r => (
+                    <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <span style={{ color: '#62627a' }}>{r.l}</span>
+                      <span style={{ color: '#e4e4e8', textAlign: 'right', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.v}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ ...card, padding: '14px 18px' }}>
+                  {[
+                    { l: 'Base price',  v: `₹${base}`,     c: '#62627a' },
+                    { l: 'Taxes & fee', v: '₹50',           c: '#62627a' },
+                    { l: 'Discount',    v: `–₹${discount}`, c: '#0b9167' },
+                  ].map(r => (
+                    <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '5px 0' }}>
+                      <span style={{ color: '#62627a' }}>{r.l}</span><span style={{ color: r.c }}>{r.v}</span>
+                    </div>
+                  ))}
+                  <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '10px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: 16, color: '#e4e4e8' }}>
+                    <span>Total</span><span>₹{total}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Nav buttons */}
-      <div className="flex items-center justify-between gap-4">
-        <button
-          onClick={handleBack}
-          disabled={step === 0}
-          className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed px-6 py-2.5 text-[14px]"
-        >
-          ← Back
-        </button>
-
-        {/* progress pills */}
-        <div className="flex gap-1.5">
-          {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === step ? 'w-6 bg-accent' : i < step ? 'w-2 bg-teal/60' : 'w-2 bg-surface3'
-              }`}
-            />
-          ))}
+      {/* Navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <button onClick={back} disabled={step === 0} className="btn-secondary" style={{ padding: '8px 18px', opacity: step === 0 ? 0.3 : 1 }}>← Back</button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {STEPS.map((_, i) => <div key={i} style={{ height: 4, borderRadius: 2, transition: 'all 200ms', width: i === step ? 20 : 6, background: i === step ? '#4e51ae' : i < step ? '#0b9167' : '#1e1e28' }} />)}
         </div>
-
-        <button
-          onClick={handleNext}
-          disabled={loading}
-          className="btn-primary px-7 py-2.5 text-[14px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3"/>
-                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-              </svg>
-              Processing...
-            </>
-          ) : step === STEPS.length - 1 ? 'Confirm & Pay' : 'Continue →'}
+        <button onClick={next} disabled={busy} className="btn-primary" style={{ padding: '8px 22px' }}>
+          {busy ? 'Processing…' : step === STEPS.length - 1 ? 'Confirm & Pay' : 'Continue →'}
         </button>
       </div>
     </div>

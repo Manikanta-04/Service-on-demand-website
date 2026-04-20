@@ -19,16 +19,14 @@ function App() {
         position="top-right"
         toastOptions={{
           style: {
-            background: '#1a1d27',
-            color: '#e8e6f0',
+            background: '#17171f',
+            color: '#e4e4e8',
             border: '1px solid rgba(255,255,255,0.08)',
-            fontSize: '14px',
+            fontSize: '13.5px',
             fontFamily: 'Inter, sans-serif',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
             borderRadius: '10px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
           },
-          success: { iconTheme: { primary: '#2dd4bf', secondary: '#1a1d27' } },
-          error:   { iconTheme: { primary: '#ef4444', secondary: '#1a1d27' } },
         }}
       />
       <Routes>

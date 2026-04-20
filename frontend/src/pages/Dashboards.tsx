@@ -1,226 +1,206 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import { useAuthStore } from '../store/useAuthStore';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-const statusConfig: Record<string, { label: string; cls: string }> = {
-  PENDING:   { label: 'Pending',   cls: 'badge-warning' },
-  CONFIRMED: { label: 'Confirmed', cls: 'badge-success' },
-  COMPLETED: { label: 'Completed', cls: 'badge-muted'   },
-  CANCELLED: { label: 'Cancelled', cls: 'badge badge-muted opacity-60' },
+const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+  PENDING:   { label: 'Pending',   color: '#fb923c', bg: 'rgba(180,83,9,0.10)'  },
+  CONFIRMED: { label: 'Confirmed', color: '#4ade80', bg: 'rgba(21,128,61,0.10)' },
+  COMPLETED: { label: 'Completed', color: '#62627a', bg: 'rgba(255,255,255,0.05)'},
+  CANCELLED: { label: 'Cancelled', color: '#62627a', bg: 'rgba(255,255,255,0.04)'},
 };
 
-type Tab = 'overview' | 'bookings' | 'reviews';
+const S = { background: '#09090d', color: '#e4e4e8', minHeight: '100vh', paddingTop: 60 };
+const card: React.CSSProperties = { background: '#111117', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' };
+const label: React.CSSProperties = { fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#62627a', marginBottom: 6 };
 
-/* ─────────── USER DASHBOARD ─────────── */
+/* ── USER DASHBOARD ──────────────────────── */
 export const UserDashboard = () => {
   const { user } = useAuthStore();
-  const [stats, setStats] = useState({ upcoming: 0, total: 0 });
+  const [tab, setTab]         = useState<'overview' | 'bookings' | 'reviews'>('overview');
   const [bookings, setBookings] = useState<any[]>([]);
-  const [tab, setTab] = useState<Tab>('overview');
+  const [stats, setStats]       = useState({ upcoming: 0, spent: 0 });
   const navigate = useNavigate();
 
   useEffect(() => {
-    axios.get(`${API_URL}/bookings`, { withCredentials: true })
-      .then(res => {
-        const data = res.data.bookings || [];
-        setBookings(data);
-        const upcoming = data.filter((b: any) => ['PENDING', 'CONFIRMED'].includes(b.status)).length;
-        const total = data.reduce((s: number, b: any) => s + (b.finalAmount || 0), 0);
-        setStats({ upcoming, total });
-      })
-      .catch(() => {});
+    axios.get(`${API}/bookings`, { withCredentials: true }).then(r => {
+      const d = r.data.bookings || [];
+      setBookings(d);
+      setStats({ upcoming: d.filter((b: any) => ['PENDING','CONFIRMED'].includes(b.status)).length, spent: d.reduce((s: number, b: any) => s + (b.finalAmount || 0), 0) });
+    }).catch(() => {});
   }, []);
 
+  const initials = (user?.name || 'U').split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+
   const sideItems = [
-    { id: 'overview' as Tab, label: 'Overview',    icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-    { id: 'bookings' as Tab, label: 'My Bookings',  icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-    { id: 'reviews' as Tab,  label: 'My Reviews',   icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' },
+    { id: 'overview',  label: 'Overview' },
+    { id: 'bookings',  label: 'My Bookings' },
+    { id: 'reviews',   label: 'Reviews' },
   ];
 
   return (
-    <div className="min-h-screen bg-bg pt-16">
-      <div className="max-w-7xl mx-auto px-5 py-10 pb-24 flex flex-col md:flex-row gap-7">
+    <div style={S}>
+      <div className="max-w-7xl mx-auto px-5 py-10 pb-24 flex flex-col md:flex-row gap-6">
 
-        {/* ── Sidebar ── */}
-        <aside className="w-full md:w-60 shrink-0">
-          <div className="card p-5 md:sticky md:top-24">
-            {/* User info */}
-            <div className="flex items-center gap-3 mb-6 pb-5 border-b border-border">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-teal flex items-center justify-center text-white font-semibold text-[14px]">
-                {user?.name?.[0] || 'U'}
-              </div>
-              <div className="overflow-hidden">
-                <div className="font-semibold text-[14px] text-text truncate">{user?.name}</div>
-                <div className="text-[11px] text-muted truncate">{user?.email}</div>
+        {/* Sidebar */}
+        <aside style={{ width: '100%', maxWidth: 220, flexShrink: 0 }}>
+          <div style={{ ...card, padding: '20px 14px' }} className="md:sticky top-24">
+            {/* User pill */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#4e51ae,#0b9167)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{initials}</div>
+              <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#e4e4e8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
+                <div style={{ fontSize: 11, color: '#62627a' }}>Customer</div>
               </div>
             </div>
 
-            <nav className="space-y-1">
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {sideItems.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => setTab(s.id)}
-                  className={`sidebar-item w-full ${tab === s.id ? 'active' : ''}`}
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d={s.icon} strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                <button key={s.id} onClick={() => setTab(s.id as any)}
+                  style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 8, fontSize: 13.5, fontWeight: 500, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 100ms',
+                    background: tab === s.id ? 'rgba(78,81,174,0.10)' : 'transparent',
+                    color: tab === s.id ? '#e4e4e8' : '#62627a',
+                  }}>
                   {s.label}
                 </button>
               ))}
             </nav>
 
-            <div className="mt-6 pt-5 border-t border-border">
-              <button
-                onClick={() => navigate('/')}
-                className="btn-primary w-full text-[13px] py-2.5"
-              >
-                + Book a service
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <button onClick={() => navigate('/')} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '8px 0', fontSize: 13 }}>
+                + Book service
               </button>
             </div>
           </div>
         </aside>
 
-        {/* ── Main ── */}
-        <main className="flex-1 min-w-0">
+        {/* Main */}
+        <main style={{ flex: 1, minWidth: 0 }}>
+          <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
 
-          {tab === 'overview' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              <h2 className="font-semibold text-2xl text-text mb-7">Dashboard</h2>
-
-              {/* Stat cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                <div className="stat-card border-l-2 border-l-accent">
-                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">Upcoming</div>
-                  <div className="font-semibold text-3xl text-text">{stats.upcoming}</div>
-                  <div className="text-[12px] text-faint mt-0.5">Active bookings</div>
+            {tab === 'overview' && (
+              <div>
+                <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', color: '#e4e4e8', marginBottom: 24 }}>Dashboard</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 12, marginBottom: 20 }}>
+                  {[
+                    { label: 'Upcoming',    value: stats.upcoming, borderColor: '#4e51ae' },
+                    { label: 'Total spent', value: `₹${stats.spent.toLocaleString()}`, borderColor: '#0b9167' },
+                  ].map(sc => (
+                    <div key={sc.label} style={{ ...card, padding: '20px 22px', borderLeft: `2px solid ${sc.borderColor}` }}>
+                      <div style={label}>{sc.label}</div>
+                      <div style={{ fontWeight: 600, fontSize: 28, color: '#e4e4e8', letterSpacing: '-0.03em' }}>{sc.value}</div>
+                    </div>
+                  ))}
                 </div>
-                <div className="stat-card border-l-2 border-l-teal">
-                  <div className="text-[11px] uppercase tracking-widest text-muted mb-1">Total spent</div>
-                  <div className="font-semibold text-3xl text-text">₹{stats.total.toLocaleString()}</div>
-                  <div className="text-[12px] text-faint mt-0.5">All time</div>
+                <div style={{ ...card, padding: '40px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+                  <div style={{ fontWeight: 600, fontSize: 16, color: '#e4e4e8', marginBottom: 6 }}>Need something done?</div>
+                  <div style={{ fontSize: 13, color: '#62627a', marginBottom: 20 }}>Browse our 45+ categories with upfront pricing.</div>
+                  <button onClick={() => navigate('/')} className="btn-secondary" style={{ padding: '8px 20px', fontSize: 13 }}>Explore categories</button>
                 </div>
               </div>
+            )}
 
-              {/* CTA */}
-              <div className="card p-8 text-center" style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(45,212,191,0.04) 100%)' }}>
-                <div className="w-12 h-12 rounded-2xl bg-accent-dim border border-accent/20 flex items-center justify-center mx-auto mb-4 text-[22px]">🔍</div>
-                <h3 className="font-semibold text-[17px] text-text mb-2">Need a service?</h3>
-                <p className="text-muted text-[14px] mb-5 max-w-sm mx-auto">Browse verified professionals across 45+ cities with upfront pricing.</p>
-                <button onClick={() => navigate('/')} className="btn-secondary text-[13px]">Explore Categories</button>
-              </div>
-            </motion.div>
-          )}
-
-          {tab === 'bookings' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              <h2 className="font-semibold text-2xl text-text mb-7">My Bookings</h2>
-              {bookings.length === 0 ? (
-                <div className="card p-14 text-center">
-                  <div className="text-[40px] mb-4">📋</div>
-                  <p className="text-muted">You have no bookings yet.</p>
-                  <button onClick={() => navigate('/')} className="btn-primary mt-5 text-[13px]">Book your first service</button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {bookings.map((b, i) => {
-                    const sc = statusConfig[b.status] || statusConfig.PENDING;
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="card p-5 flex flex-col sm:flex-row gap-4 justify-between"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`badge ${sc.cls}`}>{sc.label}</span>
-                            <span className="text-[12px] text-faint font-mono">{b.slotDate} · {b.slotTime}</span>
+            {tab === 'bookings' && (
+              <div>
+                <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', color: '#e4e4e8', marginBottom: 24 }}>My Bookings</h2>
+                {bookings.length === 0 ? (
+                  <div style={{ ...card, padding: '60px 24px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 28, marginBottom: 12 }}>📋</div>
+                    <div style={{ color: '#62627a', fontSize: 14, marginBottom: 20 }}>No bookings yet.</div>
+                    <button onClick={() => navigate('/')} className="btn-primary" style={{ padding: '8px 20px', fontSize: 13 }}>Book your first service</button>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {bookings.map((b, i) => {
+                      const sc = STATUS[b.status] || STATUS.PENDING;
+                      return (
+                        <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                          style={{ ...card, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                              <span style={{ fontSize: 11, color: '#2a2a35', fontFamily: 'JetBrains Mono, monospace' }}>{b.slotDate} · {b.slotTime}</span>
+                            </div>
+                            <div style={{ fontWeight: 500, fontSize: 14, color: '#e4e4e8' }}>{b.serviceId?.name || 'Service Booking'}</div>
+                            <div style={{ fontSize: 12, color: '#62627a', marginTop: 2 }}>Pro: {b.workerId?.name || 'Awaiting assignment'}</div>
                           </div>
-                          <h4 className="font-semibold text-[15px] text-text">{b.serviceId?.name || 'Service Booking'}</h4>
-                          <p className="text-[12px] text-muted mt-0.5">Professional: {b.workerId?.name || 'Awaiting assignment'}</p>
-                        </div>
-                        <div className="flex flex-col sm:items-end gap-2 shrink-0">
-                          <div className="font-semibold text-[18px] text-text">₹{b.finalAmount}</div>
-                          <button className="text-[12px] text-accent-light hover:underline">Download invoice</button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {tab === 'reviews' && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-              <h2 className="font-semibold text-2xl text-text mb-7">My Reviews</h2>
-              <div className="card p-14 text-center">
-                <div className="text-[40px] mb-4">★</div>
-                <p className="text-muted">You haven't submitted any reviews yet.</p>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 17, color: '#e4e4e8' }}>₹{b.finalAmount}</div>
+                            <button style={{ fontSize: 11, color: '#9496cc', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}>Invoice</button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </motion.div>
-          )}
+            )}
+
+            {tab === 'reviews' && (
+              <div>
+                <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', color: '#e4e4e8', marginBottom: 24 }}>Reviews</h2>
+                <div style={{ ...card, padding: '60px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, marginBottom: 12 }}>★</div>
+                  <div style={{ color: '#62627a', fontSize: 14 }}>No reviews submitted yet.</div>
+                </div>
+              </div>
+            )}
+          </motion.div>
         </main>
       </div>
     </div>
   );
 };
 
-/* ─────────── WORKER DASHBOARD ─────────── */
+/* ── WORKER DASHBOARD ────────────────────── */
 export const WorkerDashboard = () => {
   const { user } = useAuthStore();
-  const statCards = [
-    { label: "Today's Jobs", value: '3',    sub: 'Scheduled',    color: 'border-l-amber' },
-    { label: 'This Week',    value: '₹4,200', sub: 'Earned',     color: 'border-l-teal'  },
-    { label: 'Avg Rating',   value: '4.9',  sub: 'From 120 reviews', color: 'border-l-accent' },
+  const stats = [
+    { label: "Today's jobs",  value: '3',      sub: 'Scheduled',       border: '#b87d10' },
+    { label: 'This week',     value: '₹4,200', sub: 'Earned',          border: '#0b9167' },
+    { label: 'Avg rating',    value: '4.9 ★',  sub: '120 reviews',     border: '#4e51ae' },
   ];
 
   return (
-    <div className="min-h-screen bg-bg pt-16">
-      <div className="max-w-6xl mx-auto px-5 py-10 pb-24">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-9">
+    <div style={S}>
+      <div className="max-w-5xl mx-auto px-5 py-10 pb-24">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h2 className="font-semibold text-2xl text-text">Worker Portal</h2>
-            <p className="text-muted text-[14px] mt-1">Hello, {user?.name?.split(' ')[0]} 👋</p>
+            <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', color: '#e4e4e8' }}>Worker Portal</h2>
+            <div style={{ fontSize: 13, color: '#62627a', marginTop: 2 }}>Hello, {user?.name?.split(' ')[0]} 👋</div>
           </div>
-          <div className="flex items-center gap-2 bg-surface2 border border-border rounded-full px-4 py-2">
-            <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />
-            <span className="text-[13px] font-medium text-teal">Online</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#111117', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 20, padding: '6px 14px' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#0b9167', animation: 'pulse 2s infinite' }} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#0b9167' }}>Available</span>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          {statCards.map((s, i) => (
-            <div key={i} className={`stat-card border-l-2 ${s.color}`}>
-              <div className="text-[11px] uppercase tracking-widest text-muted">{s.label}</div>
-              <div className="font-semibold text-2xl text-text mt-1">{s.value}</div>
-              <div className="text-[12px] text-faint">{s.sub}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 20 }}>
+          {stats.map(s => (
+            <div key={s.label} style={{ ...card, padding: '20px 22px', borderLeft: `2px solid ${s.border}` }}>
+              <div style={label}>{s.label}</div>
+              <div style={{ fontWeight: 600, fontSize: 24, color: '#e4e4e8', letterSpacing: '-0.02em' }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: '#62627a', marginTop: 2 }}>{s.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* Job alert */}
-        <div className="card p-6">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-amber-dim border border-amber/20 flex items-center justify-center text-amber text-[18px] shrink-0">🔔</div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h4 className="font-semibold text-[15px] text-text">New Job: Deep Cleaning</h4>
-                <span className="badge badge-warning text-[10px]">New</span>
+        <div style={{ ...card, padding: '20px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(180,83,9,0.10)', border: '1px solid rgba(180,83,9,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>🔔</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#e4e4e8' }}>New Job: Deep Cleaning</div>
+                <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 5, background: 'rgba(180,83,9,0.10)', color: '#fb923c' }}>New</span>
               </div>
-              <p className="text-muted text-[13px] mb-4">Banjara Hills · 2.5 km away · ₹1,499 · Today 3:00 PM</p>
-              <div className="flex gap-3">
-                <button className="btn-primary text-[13px] py-2 px-5">Accept Job</button>
-                <button className="btn-secondary text-[13px] py-2 px-5">Decline</button>
+              <div style={{ fontSize: 13, color: '#62627a', marginBottom: 16 }}>Banjara Hills · 2.5 km · ₹1,499 · Today 3:00 PM</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn-primary" style={{ padding: '7px 18px', fontSize: 13 }}>Accept</button>
+                <button className="btn-secondary" style={{ padding: '7px 18px', fontSize: 13 }}>Decline</button>
               </div>
             </div>
           </div>
@@ -230,48 +210,44 @@ export const WorkerDashboard = () => {
   );
 };
 
-/* ─────────── ADMIN DASHBOARD ─────────── */
+/* ── ADMIN DASHBOARD ─────────────────────── */
 export const AdminDashboard = () => {
   const [bookings, setBookings] = useState<any[]>([]);
-  const [stats, setStats] = useState({ total: 0, revenue: 0, workers: 84, avgRating: 4.8 });
-  const [sideTab, setSideTab] = useState('overview');
+  const [stats, setStats] = useState({ total: 0, revenue: 0, workers: 84, rating: 4.8 });
 
   useEffect(() => {
-    axios.get(`${API_URL}/bookings/all`, { withCredentials: true })
-      .then(res => {
-        const data = res.data.bookings || [];
-        setBookings(data);
-        const revenue = data.reduce((s: number, b: any) => s + (b.finalAmount || 0), 0);
-        setStats(st => ({ ...st, total: data.length, revenue }));
-      })
-      .catch(() => {});
+    axios.get(`${API}/bookings/all`, { withCredentials: true }).then(r => {
+      const d = r.data.bookings || [];
+      setBookings(d);
+      setStats(s => ({ ...s, total: d.length, revenue: d.reduce((a: number, b: any) => a + (b.finalAmount || 0), 0) }));
+    }).catch(() => {});
   }, []);
 
-  const sideItems = ['Overview', 'Bookings', 'Workers', 'Services'];
-
-  const adminStats = [
-    { label: 'Total Bookings', value: stats.total,                       color: 'border-t-accent',  sub: 'All time' },
-    { label: 'Revenue',        value: `₹${stats.revenue.toLocaleString()}`, color: 'border-t-teal',  sub: 'Cumulative' },
-    { label: 'Active Workers', value: stats.workers,                     color: 'border-t-amber',   sub: 'Onboarded' },
-    { label: 'Avg Rating',     value: stats.avgRating,                   color: 'border-t-success', sub: 'Platform wide' },
+  const statCards = [
+    { label: 'Total bookings', value: stats.total,                         border: '#4e51ae' },
+    { label: 'Revenue',        value: `₹${stats.revenue.toLocaleString()}`,border: '#0b9167' },
+    { label: 'Active workers', value: stats.workers,                        border: '#b87d10' },
+    { label: 'Avg rating',     value: `${stats.rating} ★`,                 border: '#15803d' },
   ];
 
-  return (
-    <div className="min-h-screen bg-bg pt-16">
-      <div className="max-w-7xl mx-auto px-5 py-10 pb-24 flex flex-col md:flex-row gap-7">
+  const sideLinks = ['Overview', 'Bookings', 'Workers', 'Services'];
+  const [activeLink, setActiveLink] = useState('Overview');
 
+  return (
+    <div style={S}>
+      <div className="max-w-7xl mx-auto px-5 py-10 pb-24 flex flex-col md:flex-row gap-6">
         {/* Sidebar */}
-        <aside className="w-full md:w-56 shrink-0">
-          <div className="card p-5 md:sticky md:top-24">
-            <div className="text-[11px] uppercase tracking-widest text-faint font-semibold mb-4 px-1">Admin Panel</div>
-            <nav className="space-y-1">
-              {sideItems.map(s => (
-                <button
-                  key={s}
-                  onClick={() => setSideTab(s.toLowerCase())}
-                  className={`sidebar-item w-full ${sideTab === s.toLowerCase() ? 'active' : ''}`}
-                >
-                  {s}
+        <aside style={{ width: '100%', maxWidth: 200, flexShrink: 0 }}>
+          <div style={{ ...card, padding: '20px 14px' }} className="md:sticky top-24">
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', textTransform: 'uppercase', color: '#2a2a35', marginBottom: 12, paddingLeft: 12 }}>Admin Panel</div>
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {sideLinks.map(l => (
+                <button key={l} onClick={() => setActiveLink(l)}
+                  style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', borderRadius: 8, fontSize: 13.5, fontWeight: 500, border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+                    background: activeLink === l ? 'rgba(78,81,174,0.10)' : 'transparent',
+                    color: activeLink === l ? '#e4e4e8' : '#62627a',
+                  }}>
+                  {l}
                 </button>
               ))}
             </nav>
@@ -279,42 +255,41 @@ export const AdminDashboard = () => {
         </aside>
 
         {/* Main */}
-        <main className="flex-1 min-w-0">
-          <h2 className="font-semibold text-2xl text-text mb-7">Platform Overview</h2>
+        <main style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ fontWeight: 600, fontSize: 22, letterSpacing: '-0.02em', color: '#e4e4e8', marginBottom: 24 }}>Platform Overview</h2>
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {adminStats.map((s, i) => (
-              <div key={i} className={`stat-card border-t-2 ${s.color}`}>
-                <div className="text-[11px] uppercase tracking-widest text-muted">{s.label}</div>
-                <div className="font-semibold text-2xl text-text mt-1">{s.value}</div>
-                <div className="text-[12px] text-faint">{s.sub}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 20 }}>
+            {statCards.map(sc => (
+              <div key={sc.label} style={{ ...card, padding: '18px 22px', borderTop: `2px solid ${sc.border}` }}>
+                <div style={label}>{sc.label}</div>
+                <div style={{ fontWeight: 600, fontSize: 24, color: '#e4e4e8', letterSpacing: '-0.02em' }}>{sc.value}</div>
               </div>
             ))}
           </div>
 
-          {/* Recent bookings table */}
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h3 className="font-semibold text-[15px] text-text">Recent Bookings</h3>
-              <span className="badge badge-muted">{bookings.length} total</span>
+          {/* Bookings table */}
+          <div style={{ ...card, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontWeight: 600, fontSize: 14, color: '#e4e4e8' }}>Recent Bookings</div>
+              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: 'rgba(255,255,255,0.05)', color: '#62627a' }}>{bookings.length} total</span>
             </div>
-
             {bookings.length === 0 ? (
-              <div className="py-16 text-center text-muted">No bookings found.</div>
+              <div style={{ padding: '50px 24px', textAlign: 'center', color: '#62627a', fontSize: 14 }}>No bookings found.</div>
             ) : (
-              <div className="divide-y divide-border">
+              <div>
                 {bookings.slice(0, 8).map((b, i) => {
-                  const sc = statusConfig[b.status] || statusConfig.PENDING;
+                  const sc = STATUS[b.status] || STATUS.PENDING;
                   return (
-                    <div key={i} className="flex items-center justify-between px-6 py-4 hover:bg-surface2/40 transition-colors">
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: i < 7 ? '1px solid rgba(255,255,255,0.04)' : 'none', transition: 'background 100ms' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                       <div>
-                        <div className="font-medium text-[14px] text-text">{b.serviceId?.name || 'Unknown Service'}</div>
-                        <div className="text-[12px] text-muted mt-0.5">{b.userId?.name || 'Unknown'} · {b.slotDate} {b.slotTime}</div>
+                        <div style={{ fontWeight: 500, fontSize: 13.5, color: '#e4e4e8' }}>{b.serviceId?.name || 'Unknown'}</div>
+                        <div style={{ fontSize: 12, color: '#62627a', marginTop: 2 }}>{b.userId?.name || '—'} · {b.slotDate} {b.slotTime}</div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-semibold text-[15px] text-text">₹{b.finalAmount}</span>
-                        <span className={`badge ${sc.cls}`}>{sc.label}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: '#e4e4e8' }}>₹{b.finalAmount}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 5, background: sc.bg, color: sc.color }}>{sc.label}</span>
                       </div>
                     </div>
                   );
