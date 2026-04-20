@@ -69,7 +69,7 @@ export const Navbar = () => {
               </svg>
             </div>
             <span style={{ fontWeight: 600, fontSize: 14.5, letterSpacing: '-0.01em', color: '#e4e4e8' }}>
-              Service<span style={{ color: '#9496cc' }}>Now</span>
+              On Demand <span style={{ color: '#9496cc' }}>Service</span>
             </span>
           </button>
 

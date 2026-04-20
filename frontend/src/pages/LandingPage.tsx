@@ -326,7 +326,7 @@ export const LandingPage = () => {
             Ready to book your first service?
           </h2>
           <p className="mb-8" style={{ fontSize: 15, color: '#62627a' }}>
-            Join 12 million customers who trust ServiceNow for quality home services.
+            Join 12 million customers who trust On Demand Service for quality home services.
           </p>
           <button onClick={() => navigate('/services/cleaning')} className="btn-primary" style={{ padding: '10px 28px', fontSize: 14 }}>
             Browse services

@@ -29,7 +29,7 @@ export const Footer = () => {
                 </svg>
               </div>
               <span style={{ fontWeight: 600, fontSize: 14.5, letterSpacing: '-0.01em', color: '#e4e4e8' }}>
-                Service<span style={{ color: '#9496cc' }}>Now</span>
+                On Demand <span style={{ color: '#9496cc' }}>Service</span>
               </span>
             </button>
             <p style={{ fontSize: 13, color: '#62627a', lineHeight: 1.65, maxWidth: 220 }}>
@@ -65,7 +65,7 @@ export const Footer = () => {
 
         {/* Bottom bar */}
         <div style={{ paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-          <span style={{ fontSize: 12, color: '#2a2a35' }}>© 2026 ServiceNow. All rights reserved.</span>
+          <span style={{ fontSize: 12, color: '#2a2a35' }}>© 2026 On Demand Service. All rights reserved.</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#0b9167' }} />
             <span style={{ fontSize: 12, color: '#2a2a35' }}>All systems operational</span>

@@ -79,7 +79,7 @@ export const LoginPage = () => {
               </svg>
             </div>
             <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em', color: '#e4e4e8' }}>
-              Service<span style={{ color: '#9496cc' }}>Now</span>
+              On Demand <span style={{ color: '#9496cc' }}>Service</span>
             </span>
           </div>
         </div>
@@ -119,7 +119,7 @@ export const LoginPage = () => {
                       {isLogin ? 'Welcome back' : 'Create your account'}
                     </div>
                     <div style={{ fontSize: 13, color: '#62627a' }}>
-                      {isLogin ? 'Sign in to continue to ServiceNow' : 'Get started — it only takes a minute'}
+                      {isLogin ? 'Sign in to continue to On Demand Service' : 'Get started — it only takes a minute'}
                     </div>
                   </div>
 
@@ -212,7 +212,7 @@ export const LoginPage = () => {
                 </div>
               </div>
               <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@servicenow.com" style={inputStyle} />
+                <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@ondemandservice.com" style={inputStyle} />
                 <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputStyle} />
                 <button type="submit" disabled={loading} className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '10px', marginTop: 4, fontSize: 14 }}>
                   {loading ? 'Verifying…' : 'Access Admin Panel'}
