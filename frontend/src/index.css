@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,48 +13,171 @@
 
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    background-color: theme('colors.bg');
-    color: theme('colors.text');
-    font-family: theme('fontFamily.body');
+    background-color: #0d0e12;
+    color: #e8e6f0;
+    font-family: 'Inter', sans-serif;
     font-size: 15px;
-    line-height: 1.7;
-    -webkit-font-smoothing: antialiased;
-  }
-
-  /* NOISE TEXTURE OVERLAY */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
+    line-height: 1.6;
   }
 }
 
 @layer components {
-  /* UI Design System / Components */
-  .glass-card {
-    @apply bg-surface border border-border rounded-xl relative overflow-hidden backdrop-blur-md;
+  /* ── Cards ── */
+  .card {
+    @apply bg-surface border border-border rounded-xl shadow-card transition-all duration-200;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   }
 
-  .glass-card::before {
+  .card:hover {
+    @apply border-border-hover shadow-card-hover;
+  }
+
+  .glass {
+    background: rgba(19, 21, 28, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply bg-accent text-white font-semibold px-6 py-2.5 rounded-lg transition-all duration-200;
+    @apply hover:bg-accent-light hover:shadow-accent-glow active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply bg-surface2 border border-border text-text font-medium px-6 py-2.5 rounded-lg;
+    @apply hover:border-border-hover hover:bg-surface3 transition-all duration-200 active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply text-muted font-medium px-4 py-2 rounded-lg transition-all duration-150;
+    @apply hover:text-text hover:bg-surface2;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full bg-surface2 border border-border rounded-lg px-4 py-3 text-text;
+    @apply placeholder:text-faint outline-none transition-all duration-150;
+    @apply focus:border-accent focus:bg-surface3 focus:ring-2 focus:ring-accent/10;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold;
+  }
+
+  .badge-success { @apply bg-success/10 text-success; }
+  .badge-warning { @apply bg-warning/10 text-warning; }
+  .badge-accent  { @apply bg-accent-dim text-accent-light; }
+  .badge-muted   { @apply bg-surface3 text-muted; }
+
+  /* ── Section label ── */
+  .label-tag {
+    @apply inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] uppercase text-muted;
+  }
+  .label-tag::before {
     content: '';
-    @apply absolute top-0 left-0 right-0 h-[1px];
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+    @apply inline-block w-4 h-px bg-muted;
+  }
+
+  /* ── Nav link ── */
+  .nav-link {
+    @apply text-sm font-medium text-muted transition-colors duration-150 hover:text-text;
+  }
+  .nav-link.active {
+    @apply text-text;
+  }
+
+  /* ── Stat card ── */
+  .stat-card {
+    @apply card p-6 flex flex-col gap-1;
+  }
+
+  /* ── Divider ── */
+  .divider {
+    @apply w-full h-px bg-border my-6;
+  }
+
+  /* ── Shine overlay for cards ── */
+  .shine {
+    @apply relative overflow-hidden;
+  }
+  .shine::after {
+    content: '';
+    @apply absolute inset-0 pointer-events-none rounded-inherit;
+    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.03) 50%, transparent 60%);
+  }
+
+  /* ── Sidebar item ── */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted transition-all duration-150 cursor-pointer;
+  }
+  .sidebar-item:hover {
+    @apply bg-surface2 text-text;
+  }
+  .sidebar-item.active {
+    @apply bg-accent-dim text-accent-light;
+  }
+
+  /* ── Price tag ── */
+  .price-tag {
+    @apply font-semibold text-text;
   }
 }
 
 @layer utilities {
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
+  /* Scrollbar */
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
+  .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+  .scrollbar-thin::-webkit-scrollbar-track { @apply bg-surface; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-faint rounded-full; }
+
+  /* Text utilities */
+  .text-gradient {
+    background: linear-gradient(135deg, #e8e6f0 0%, #9091a4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .text-gradient-accent {
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
+
+  /* Rounded inherit */
+  .rounded-inherit { border-radius: inherit; }
+
+  /* Subtle grid pattern */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Glow under elements */
+  .glow-accent {
+    box-shadow: 0 0 40px -8px rgba(99,102,241,0.4);
+  }
+
+  .img-cover {
+    @apply w-full h-full object-cover;
+  }
+
+  /* Animate stagger helper */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.10s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.20s; }
 }

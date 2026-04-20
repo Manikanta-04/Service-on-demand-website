@@ -4,276 +4,455 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const steps = ['Location', 'Date', 'Time Slot', 'Offers', 'Payment'];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-export const BookingFlow = () => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
-  const [formData, setFormData] = useState({
-    address: '',
-    date: '',
-    time: '',
-    serviceId: 'mock-service-123',
-    amount: 500,
+const STEPS = ['Location', 'Schedule', 'Time Slot', 'Offers', 'Summary'] as const;
+type Step = 0 | 1 | 2 | 3 | 4;
+
+const TIME_SLOTS = [
+  { time: '09:00', label: '9:00 AM', available: true },
+  { time: '11:00', label: '11:00 AM', available: true },
+  { time: '13:00', label: '1:00 PM', available: false },
+  { time: '15:00', label: '3:00 PM', available: true },
+  { time: '17:00', label: '5:00 PM', available: true },
+  { time: '19:00', label: '7:00 PM', available: false },
+];
+
+interface FormData {
+  address: string;
+  date: string;
+  time: string;
+  serviceId: string;
+  baseAmount: number;
+  discount: number;
+}
+
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
+  center: { x: 0, opacity: 1 },
+  exit:  (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
+};
+
+/* ── Step Indicator ── */
+const StepIndicator = ({ current }: { current: number }) => (
+  <div className="flex items-center justify-between mb-8">
+    {STEPS.map((label, i) => {
+      const done   = i < current;
+      const active = i === current;
+      return (
+        <div key={i} className="flex items-center">
+          {/* circle */}
+          <div className="flex flex-col items-center gap-1.5">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-semibold border-2 transition-all duration-300 ${
+              done   ? 'bg-teal border-teal text-bg' :
+              active ? 'bg-accent border-accent text-white' :
+                       'bg-surface2 border-border text-faint'
+            }`}>
+              {done ? (
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8l4 4 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : i + 1}
+            </div>
+            <span className={`text-[10px] hidden md:block tracking-wide uppercase font-medium transition-colors ${
+              active ? 'text-text' : done ? 'text-teal' : 'text-faint'
+            }`}>
+              {label}
+            </span>
+          </div>
+          {/* connector */}
+          {i < STEPS.length - 1 && (
+            <div className="w-full h-px mx-2 transition-colors duration-500" style={{
+              background: i < current ? 'rgba(45,212,191,0.5)' : 'rgba(255,255,255,0.06)',
+              minWidth: '20px', flex: 1,
+            }} />
+          )}
+        </div>
+      );
+    })}
+  </div>
+);
+
+/* ── Individual Steps ── */
+const LocationStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="space-y-5">
+    <div>
+      <h3 className="font-semibold text-[18px] text-text mb-1">Where do you need the service?</h3>
+      <p className="text-muted text-[13px]">We'll assign the nearest available professional.</p>
+    </div>
+    <div>
+      <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Full Address</label>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="input resize-none h-28"
+        placeholder="House no., Street, Area, City, Pincode"
+      />
+    </div>
+    {/* quick location picks */}
+    <div>
+      <div className="text-[11px] text-faint uppercase tracking-widest mb-2">Quick picks</div>
+      <div className="flex flex-wrap gap-2">
+        {['Banjara Hills, Hyderabad', 'Koramangala, Bangalore', 'Andheri, Mumbai'].map(loc => (
+          <button
+            key={loc}
+            onClick={() => onChange(loc)}
+            className={`text-[12px] border rounded-lg px-3 py-1.5 transition-all ${
+              value === loc ? 'border-accent text-accent-light bg-accent-dim' : 'border-border text-muted hover:border-border-hover hover:text-text'
+            }`}
+          >
+            {loc}
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+const ScheduleStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
+  // Generate next 7 days
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i + 1);
+    return {
+      isoDate: d.toISOString().split('T')[0],
+      day:  d.toLocaleDateString('en-IN', { weekday: 'short' }),
+      date: d.getDate(),
+      month: d.toLocaleDateString('en-IN', { month: 'short' }),
+    };
+  });
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="font-semibold text-[18px] text-text mb-1">Pick a date</h3>
+        <p className="text-muted text-[13px]">Choose a convenient date for your appointment.</p>
+      </div>
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+        {days.map(d => (
+          <button
+            key={d.isoDate}
+            onClick={() => onChange(d.isoDate)}
+            className={`flex flex-col items-center py-3 px-1 rounded-xl border text-center transition-all duration-150 ${
+              value === d.isoDate
+                ? 'border-accent bg-accent-dim text-accent-light'
+                : 'border-border bg-surface2 text-muted hover:border-border-hover hover:text-text'
+            }`}
+          >
+            <span className="text-[10px] uppercase tracking-wider">{d.day}</span>
+            <span className="text-[18px] font-semibold mt-1">{d.date}</span>
+            <span className="text-[10px]">{d.month}</span>
+          </button>
+        ))}
+      </div>
+      {/* Fallback date input */}
+      <div>
+        <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Or enter a specific date</label>
+        <input
+          type="date"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+          className="input"
+          style={{ colorScheme: 'dark' }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const TimeSlotStep = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="space-y-5">
+    <div>
+      <h3 className="font-semibold text-[18px] text-text mb-1">Select a time slot</h3>
+      <p className="text-muted text-[13px]">Greyed out slots are already booked.</p>
+    </div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {TIME_SLOTS.map(slot => (
+        <button
+          key={slot.time}
+          disabled={!slot.available}
+          onClick={() => slot.available && onChange(slot.time)}
+          className={`py-3.5 px-4 rounded-xl border text-[14px] font-medium transition-all duration-150 ${
+            !slot.available
+              ? 'border-border/40 text-faint cursor-not-allowed opacity-50 line-through'
+              : value === slot.time
+              ? 'border-accent bg-accent-dim text-accent-light ring-1 ring-accent/40'
+              : 'border-border bg-surface2 text-text hover:border-border-hover hover:bg-surface3'
+          }`}
+        >
+          {slot.label}
+          {!slot.available && <div className="text-[10px] mt-0.5 not-italic font-normal">Booked</div>}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+const OffersStep = () => (
+  <div className="space-y-5">
+    <div>
+      <h3 className="font-semibold text-[18px] text-text mb-1">Offers & Discounts</h3>
+      <p className="text-muted text-[13px]">Apply a coupon or avail available offers.</p>
+    </div>
+
+    {/* Active offer */}
+    <div className="card p-4 flex items-center justify-between border-teal/30 bg-teal/5">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-teal-dim border border-teal/20 flex items-center justify-center text-teal text-[16px]">🏷</div>
+        <div>
+          <div className="font-semibold text-[14px] text-text">Festival Discount Applied</div>
+          <div className="text-[12px] text-muted">30% OFF on all services today</div>
+        </div>
+      </div>
+      <span className="font-semibold text-teal text-[15px]">–₹150</span>
+    </div>
+
+    {/* Coupon input */}
+    <div>
+      <label className="block text-[11px] uppercase tracking-widest font-semibold text-muted mb-1.5">Have a coupon?</label>
+      <div className="flex gap-2">
+        <input className="input flex-1" placeholder="Enter coupon code" />
+        <button className="btn-secondary text-[13px] px-5 shrink-0">Apply</button>
+      </div>
+    </div>
+
+    <div className="card p-4 flex items-center gap-3 border-amber/20 bg-amber-dim/50">
+      <span className="text-amber text-[18px]">💳</span>
+      <div className="text-[13px] text-muted">Pay online & get an extra <span className="font-medium text-text">₹50 cashback</span> on your first booking.</div>
+    </div>
+  </div>
+);
+
+const SummaryStep = ({ data }: { data: FormData }) => {
+  const finalAmount = data.baseAmount - data.discount + 50; // taxes
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="font-semibold text-[18px] text-text mb-1">Review your booking</h3>
+        <p className="text-muted text-[13px]">Confirm all details before payment.</p>
+      </div>
+
+      {/* Booking details */}
+      <div className="card p-5 space-y-3 text-[14px]">
+        {[
+          { label: 'Date',     value: data.date    || '—' },
+          { label: 'Time',     value: data.time ? (TIME_SLOTS.find(s => s.time === data.time)?.label || data.time) : '—' },
+          { label: 'Location', value: data.address || '—' },
+        ].map(row => (
+          <div key={row.label} className="flex items-start justify-between gap-4">
+            <span className="text-muted shrink-0 w-20">{row.label}</span>
+            <span className="text-text text-right">{row.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Price breakdown */}
+      <div className="card p-5 space-y-2.5 text-[14px]">
+        <div className="flex justify-between text-muted">
+          <span>Base price</span><span className="text-text">₹{data.baseAmount}</span>
+        </div>
+        <div className="flex justify-between text-muted">
+          <span>Taxes & fees</span><span className="text-text">₹50</span>
+        </div>
+        <div className="flex justify-between text-teal font-medium">
+          <span>Discount</span><span>–₹{data.discount}</span>
+        </div>
+        <div className="h-px bg-border my-1" />
+        <div className="flex justify-between font-semibold text-[17px]">
+          <span className="text-text">Total</span>
+          <span className="text-text">₹{finalAmount}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── Main BookingFlow ── */
+export const BookingFlow = ({ serviceId, serviceName, basePrice }: {
+  serviceId?: string;
+  serviceName?: string;
+  basePrice?: number;
+}) => {
+  const [step,      setStep]      = useState<Step>(0);
+  const [dir,       setDir]       = useState(1);
+  const [complete,  setComplete]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [formData,  setFormData]  = useState<FormData>({
+    address:    '',
+    date:       '',
+    time:       '',
+    serviceId:  serviceId || 'mock-service-123',
+    baseAmount: basePrice || 500,
+    discount:   150,
   });
 
   const navigate = useNavigate();
 
-  const handleNext = () => {
-    if (currentStep === 0 && !formData.address.trim()) {
-      toast.error('Please enter your address');
-      return;
-    }
-    if (currentStep === 1 && !formData.date) {
-      toast.error('Please select a date');
-      return;
-    }
-    if (currentStep === 2 && !formData.time) {
-      toast.error('Please select a time slot');
-      return;
-    }
+  const update = (key: keyof FormData) => (val: string | number) =>
+    setFormData(prev => ({ ...prev, [key]: val }));
 
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1);
+  const validateStep = (): boolean => {
+    if (step === 0 && !formData.address.trim()) { toast.error('Please enter your address'); return false; }
+    if (step === 1 && !formData.date)            { toast.error('Please select a date');     return false; }
+    if (step === 2 && !formData.time)            { toast.error('Please select a time slot'); return false; }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (!validateStep()) return;
+    if (step < STEPS.length - 1) {
+      setDir(1);
+      setStep(s => (s + 1) as Step);
     } else {
       submitBooking();
     }
   };
 
-  const handlePrev = () => {
-    if (currentStep > 0) setCurrentStep(prev => prev - 1);
+  const handleBack = () => {
+    if (step > 0) { setDir(-1); setStep(s => (s - 1) as Step); }
   };
 
   const submitBooking = async () => {
+    setLoading(true);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const createRes = await axios.post(`${API_URL}/bookings/create-order`, {
-        serviceId: '65a12b3c4d5e6f7a8b9c0d1e', // Valid ObjectId
-        date: formData.date,
-        time: formData.time,
-        finalAmount: 350
+        serviceId: '65a12b3c4d5e6f7a8b9c0d1e',
+        date:      formData.date,
+        time:      formData.time,
+        finalAmount: formData.baseAmount - formData.discount + 50,
       }, { withCredentials: true });
 
       const { orderId, bookingId } = createRes.data;
 
-      // Mock webhook verification to confirm booking
       await axios.post(`${API_URL}/bookings/webhook`, {
-        orderId,
-        paymentId: 'pay_mock123',
-        signature: 'valid',
-        bookingId
+        orderId, paymentId: 'pay_mock123', signature: 'valid', bookingId,
       });
 
-      toast.success('Booking confirmed successfully!');
-      setIsComplete(true);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Booking failed. Please try again.');
+      toast.success('Booking confirmed!');
+      setComplete(true);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Booking failed. Try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const slideVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 100 : -100,
-      opacity: 0
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1
-    },
-    exit: (direction: number) => ({
-      zIndex: 0,
-      x: direction < 0 ? 100 : -100,
-      opacity: 0
-    })
-  };
-
-  // 1 for forward, -1 for backward
-  const [direction, setDirection] = useState(1);
-
-
-  return (
-    <div className="max-w-3xl mx-auto p-6 bg-surface border border-border rounded-2xl shadow-xl">
-      {isComplete ? (
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center py-16"
+  /* ── Success screen ── */
+  if (complete) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="text-center py-14"
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', stiffness: 200, damping: 18, delay: 0.1 }}
+          className="w-20 h-20 rounded-full bg-teal/10 border border-teal/30 flex items-center justify-center mx-auto mb-6"
         >
-          <div className="w-24 h-24 bg-accent2/10 text-accent2 rounded-full flex items-center justify-center mx-auto mb-6">
-            <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="font-display font-bold text-4xl mb-4 text-text">Booking Confirmed!</h2>
-          <p className="text-muted text-lg mb-8 max-w-md mx-auto">
-            Your service has been successfully booked for {formData.date} at {formData.time}. A worker will be assigned shortly.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-            <button 
-              onClick={() => navigate('/dashboard')}
-              className="bg-accent text-white px-8 py-3 rounded-lg font-medium hover:bg-accent/90 transition-colors shadow-lg shadow-accent/20"
-            >
-              Go to My Bookings
-            </button>
-            <button 
-              onClick={() => navigate('/')}
-              className="bg-surface2 border border-border text-text px-8 py-3 rounded-lg font-medium hover:bg-surface transition-colors"
-            >
-              Return Home
-            </button>
-          </div>
+          <svg className="w-9 h-9 text-teal" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </motion.div>
-      ) : (
-        <>
-          {/* Progress Bar */}
-          <div className="flex justify-between items-center mb-8 relative">
-        <div className="absolute top-1/2 left-0 right-0 h-1 bg-surface2 -z-10 -translate-y-1/2 rounded-full" />
-        <motion.div 
-          className="absolute top-1/2 left-0 h-1 bg-accent -z-10 -translate-y-1/2 rounded-full" 
-          initial={{ width: '0%' }}
-          animate={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-          transition={{ duration: 0.3 }}
-        />
-        {steps.map((step, index) => (
-          <div key={index} className="flex flex-col items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-sm border-2 transition-colors ${
-              index <= currentStep ? 'bg-accent border-accent text-white shadow-[0_0_15px_rgba(124,110,244,0.5)]' : 'bg-surface2 border-border text-muted'
-            }`}>
-              {index + 1}
-            </div>
-            <span className={`text-xs font-mono uppercase hidden md:block ${index <= currentStep ? 'text-text' : 'text-faint'}`}>
-              {step}
-            </span>
-          </div>
-        ))}
-      </div>
 
-      {/* Step Content */}
-      <div className="relative min-h-[400px] overflow-hidden bg-surface2/50 rounded-xl p-6 border border-border/50">
-        <AnimatePresence custom={direction} mode="wait">
+        <h2 className="font-semibold text-2xl text-text mb-2">Booking Confirmed!</h2>
+        <p className="text-muted text-[14px] max-w-sm mx-auto mb-2">
+          Your booking for <span className="text-text font-medium">{serviceName || 'the service'}</span> is confirmed.
+        </p>
+        <p className="text-muted text-[14px] mb-8">
+          {formData.date && `${formData.date} · `}
+          {formData.time && (TIME_SLOTS.find(s => s.time === formData.time)?.label || formData.time)}
+        </p>
+
+        <div className="card p-5 max-w-xs mx-auto text-left mb-8 text-[13px]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />
+            <span className="text-muted">Professional will be assigned within 30 min</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-accent" />
+            <span className="text-muted">You'll receive a confirmation SMS & email</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button onClick={() => navigate('/dashboard')} className="btn-primary px-8 py-3">
+            View My Bookings
+          </button>
+          <button onClick={() => navigate('/')} className="btn-secondary px-8 py-3">
+            Back to Home
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  /* ── Form ── */
+  return (
+    <div>
+      <StepIndicator current={step} />
+
+      {/* Step content */}
+      <div className="relative min-h-[320px] overflow-hidden bg-surface2/40 border border-border rounded-xl p-6 mb-6">
+        <AnimatePresence custom={dir} mode="wait">
           <motion.div
-            key={currentStep}
-            custom={direction}
+            key={step}
+            custom={dir}
             variants={slideVariants}
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="w-full h-full flex flex-col"
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
           >
-            {currentStep === 0 && (
-              <div className="flex-1">
-                <h3 className="font-display text-2xl font-semibold mb-4 text-text">Where do you need the service?</h3>
-                <input 
-                  type="text" 
-                  value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  className="w-full bg-surface border border-border rounded-lg p-4 text-text focus:border-accent outline-none transition-colors"
-                  placeholder="Enter full address"
-                />
-              </div>
-            )}
-            
-            {currentStep === 1 && (
-              <div className="flex-1">
-                <h3 className="font-display text-2xl font-semibold mb-4 text-text">Select Date</h3>
-                <input 
-                  type="date" 
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  className="w-full bg-surface border border-border rounded-lg p-4 text-text focus:border-accent outline-none"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
-            )}
-
-            {currentStep === 2 && (
-              <div className="flex-1">
-                <h3 className="font-display text-2xl font-semibold mb-4 text-text">Select Time Slot</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {['09:00', '11:00', '13:00', '15:00', '17:00'].map(time => (
-                    <button 
-                      key={time}
-                      onClick={() => setFormData({...formData, time})}
-                      className={`p-4 rounded-lg border text-center transition-all ${
-                        formData.time === time 
-                        ? 'border-accent bg-accent/10 text-accent ring-1 ring-accent' 
-                        : 'border-border bg-surface hover:border-accent/50 text-text'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {currentStep === 3 && (
-              <div className="flex-1">
-                <h3 className="font-display text-2xl font-semibold mb-4 text-text">Offers & Discounts</h3>
-                <div className="p-4 border border-accent/30 bg-accent/5 rounded-lg flex justify-between items-center">
-                  <div>
-                    <h4 className="font-semibold text-accent">Festival Discount Applied!</h4>
-                    <p className="text-sm text-muted">30% OFF on all services today.</p>
-                  </div>
-                  <span className="font-mono text-xl text-accent2">- ₹150</span>
-                </div>
-              </div>
-            )}
-
-            {currentStep === 4 && (
-              <div className="flex-1 flex flex-col justify-center items-center text-center">
-                <h3 className="font-display text-3xl font-bold mb-2 text-text">Order Summary</h3>
-                <p className="text-muted mb-8">Review your booking details</p>
-                
-                <div className="w-full max-w-md bg-surface border border-border rounded-xl p-6 text-left mb-6 shadow-lg">
-                  <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border/50">
-                    <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center text-accent text-2xl">✨</div>
-                    <div>
-                      <h4 className="font-bold text-lg text-text">Premium Service</h4>
-                      <p className="text-sm text-muted">Service ID: {formData.serviceId.slice(-6)}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between"><span className="text-muted">Date</span><span className="font-medium text-text">{formData.date}</span></div>
-                    <div className="flex justify-between"><span className="text-muted">Time</span><span className="font-medium text-text">{formData.time}</span></div>
-                    <div className="flex justify-between"><span className="text-muted">Location</span><span className="font-medium text-text truncate max-w-[200px]">{formData.address}</span></div>
-                  </div>
-
-                  <div className="space-y-3 bg-surface2/50 p-4 rounded-lg">
-                    <div className="flex justify-between text-sm"><span className="text-muted">Base Price</span><span className="text-text">₹500</span></div>
-                    <div className="flex justify-between text-sm"><span className="text-muted">Taxes & Fee</span><span className="text-text">₹50</span></div>
-                    <div className="flex justify-between text-sm text-accent2"><span className="font-medium">Festival Discount</span><span className="font-medium">- ₹200</span></div>
-                    <div className="h-px bg-border my-2" />
-                    <div className="flex justify-between font-display font-bold text-2xl"><span className="text-text">Total</span><span className="text-accent text-glow">₹{formData.amount}</span></div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {step === 0 && <LocationStep  value={formData.address} onChange={update('address')} />}
+            {step === 1 && <ScheduleStep  value={formData.date}    onChange={update('date')} />}
+            {step === 2 && <TimeSlotStep  value={formData.time}    onChange={update('time')} />}
+            {step === 3 && <OffersStep />}
+            {step === 4 && <SummaryStep   data={formData} />}
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between mt-8">
-        <button 
-          onClick={() => { setDirection(-1); handlePrev(); }}
-          disabled={currentStep === 0}
-          className="px-6 py-2.5 rounded-lg border border-border bg-surface text-text font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-surface2 transition-colors"
+      {/* Nav buttons */}
+      <div className="flex items-center justify-between gap-4">
+        <button
+          onClick={handleBack}
+          disabled={step === 0}
+          className="btn-secondary disabled:opacity-40 disabled:cursor-not-allowed px-6 py-2.5 text-[14px]"
         >
-          Back
+          ← Back
         </button>
-        <button 
-          onClick={() => { setDirection(1); handleNext(); }}
-          className="px-8 py-2.5 rounded-lg bg-accent text-white font-medium hover:bg-accent/90 transition-colors shadow-[0_4px_14px_rgba(124,110,244,0.39)]"
-        >
-          {currentStep === steps.length - 1 ? 'Pay with Razorpay' : 'Continue'}
-        </button>
+
+        {/* progress pills */}
+        <div className="flex gap-1.5">
+          {STEPS.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === step ? 'w-6 bg-accent' : i < step ? 'w-2 bg-teal/60' : 'w-2 bg-surface3'
+              }`}
+            />
+          ))}
         </div>
-      </>
-      )}
+
+        <button
+          onClick={handleNext}
+          disabled={loading}
+          className="btn-primary px-7 py-2.5 text-[14px] disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {loading ? (
+            <>
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.3"/>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
+              </svg>
+              Processing...
+            </>
+          ) : step === STEPS.length - 1 ? 'Confirm & Pay' : 'Continue →'}
+        </button>
+      </div>
     </div>
   );
 };

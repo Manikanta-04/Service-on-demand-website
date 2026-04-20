@@ -1,52 +1,78 @@
+import { useNavigate } from 'react-router-dom';
+
+const links = {
+  Company:   ['About Us', 'Careers', 'Blog', 'Contact'],
+  Customers: ['Services', 'Help Center', 'Safety', 'Terms'],
+  Pros:      ['Join as a Pro', 'Pro Help Center', 'Success Stories'],
+};
+
 export const Footer = () => {
+  const navigate = useNavigate();
+
   return (
-    <footer className="bg-surface2 pt-16 pb-8 border-t border-border mt-20">
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-        <div className="col-span-1 md:col-span-1">
-          <div className="font-display font-bold text-2xl tracking-tight text-text flex items-center gap-2 mb-4">
-            <span className="text-accent">◆</span> Service Now
+    <footer className="bg-surface border-t border-border">
+      <div className="max-w-7xl mx-auto px-5 pt-14 pb-8">
+
+        {/* Top row */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+
+          {/* Brand */}
+          <div className="col-span-2">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2.5 mb-4 group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center group-hover:scale-105 transition-transform">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 1L14 4.5V11.5L8 15L2 11.5V4.5L8 1Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round"/>
+                  <path d="M8 5.5V10.5M5.5 8H10.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <span className="font-semibold text-[16px] text-text">Service<span className="text-accent-light">Now</span></span>
+            </button>
+            <p className="text-muted text-[13px] leading-relaxed max-w-[220px]">
+              Your trusted partner for home services. Connecting you with verified professionals instantly.
+            </p>
+
+            {/* Socials */}
+            <div className="flex gap-3 mt-5">
+              {['Twitter', 'Instagram', 'LinkedIn'].map(s => (
+                <a
+                  key={s}
+                  href="#"
+                  className="w-8 h-8 rounded-lg bg-surface2 border border-border flex items-center justify-center text-faint hover:text-text hover:border-border-hover transition-all"
+                  aria-label={s}
+                >
+                  <span className="text-[11px] font-mono">{s[0]}</span>
+                </a>
+              ))}
+            </div>
           </div>
-          <p className="text-muted text-sm leading-relaxed">
-            Your trusted partner for premium home services. We connect you with top-rated professionals instantly.
-          </p>
-        </div>
-        
-        <div>
-          <h4 className="font-display font-bold text-lg mb-4 text-text">Company</h4>
-          <ul className="space-y-3 text-muted text-sm">
-            <li><a href="#" className="hover:text-accent transition-colors">About Us</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Careers</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Blog</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Contact</a></li>
-          </ul>
+
+          {/* Links */}
+          {Object.entries(links).map(([group, items]) => (
+            <div key={group}>
+              <h5 className="font-semibold text-[12px] text-text uppercase tracking-widest mb-4">{group}</h5>
+              <ul className="space-y-2.5">
+                {items.map(link => (
+                  <li key={link}>
+                    <a href="#" className="text-[13px] text-muted hover:text-text transition-colors">
+                      {link}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        <div>
-          <h4 className="font-display font-bold text-lg mb-4 text-text">For Customers</h4>
-          <ul className="space-y-3 text-muted text-sm">
-            <li><a href="#" className="hover:text-accent transition-colors">Categories</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Help Center</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Safety</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Terms of Service</a></li>
-          </ul>
-        </div>
-
-        <div>
-          <h4 className="font-display font-bold text-lg mb-4 text-text">For Professionals</h4>
-          <ul className="space-y-3 text-muted text-sm">
-            <li><a href="#" className="hover:text-accent transition-colors">Join as a Pro</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Pro Help Center</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Success Stories</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="text-faint text-sm">© 2026 Service Now. All rights reserved.</p>
-        <div className="flex gap-4 text-faint">
-          <a href="#" className="hover:text-text transition-colors">Twitter</a>
-          <a href="#" className="hover:text-text transition-colors">Instagram</a>
-          <a href="#" className="hover:text-text transition-colors">LinkedIn</a>
+        {/* Bottom row */}
+        <div className="pt-7 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-[12px] text-faint">© 2026 ServiceNow. All rights reserved.</p>
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal animate-pulse" />
+            <span className="text-[12px] text-faint">All systems operational</span>
+          </div>
         </div>
       </div>
     </footer>

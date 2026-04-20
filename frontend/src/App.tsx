@@ -15,13 +15,22 @@ function App() {
   return (
     <Router>
       <Navbar />
-      <Toaster position="top-right" toastOptions={{
-        style: {
-          background: '#16161f',
-          color: '#f0eefc',
-          border: '1px solid rgba(255,255,255,0.07)',
-        }
-      }} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: '#1a1d27',
+            color: '#e8e6f0',
+            border: '1px solid rgba(255,255,255,0.08)',
+            fontSize: '14px',
+            fontFamily: 'Inter, sans-serif',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            borderRadius: '10px',
+          },
+          success: { iconTheme: { primary: '#2dd4bf', secondary: '#1a1d27' } },
+          error:   { iconTheme: { primary: '#ef4444', secondary: '#1a1d27' } },
+        }}
+      />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
