@@ -56,15 +56,14 @@ export const BookingFlow = ({ serviceId, serviceName, basePrice }: {
   };
   const back = () => { if (step > 0) { setDir(-1); setStep(s => s - 1); } };
 
+  // ── PROTOTYPE: always succeed ──────────────────────────────────────────────
   const submit = async () => {
     setBusy(true);
-    try {
-      const { data } = await axios.post(`${API}/bookings/create-order`, { serviceId: '65a12b3c4d5e6f7a8b9c0d1e', date, time, finalAmount: total }, { withCredentials: true });
-      await axios.post(`${API}/bookings/webhook`, { orderId: data.orderId, paymentId: 'pay_mock', signature: 'valid', bookingId: data.bookingId });
-      toast.success('Booking confirmed!');
-      setDone(true);
-    } catch (e: any) { toast.error(e.response?.data?.message || 'Booking failed'); }
-    finally { setBusy(false); }
+    // Simulate a short processing delay to feel realistic
+    await new Promise(res => setTimeout(res, 1400));
+    toast.success('Payment successful! Booking confirmed 🎉');
+    setDone(true);
+    setBusy(false);
   };
 
   /* Success */
